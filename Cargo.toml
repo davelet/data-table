@@ -2,6 +2,19 @@
 name = "data-table"
 version = "0.1.0"
 edition = "2024"
+description = "You are my SQL"
+authors = ["davelet <sheldon.sh.hb@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/davelet/you_my_sql"
+homepage = "https://github.com/davelet/you_my_sql"
+documentation = "https://github.com/davelet/you_my_sql#readme"
+keywords = ["sql", "database", "client"]
+categories = ["database", "gui", "floem"]
+readme = "README.md"
 
 [dependencies]
+you_my_sql_db = { path = "./you_my_sql_db" }
+you_my_sql_config = { path = "./you_my_sql_config" }
 floem = "0.2.0"
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
