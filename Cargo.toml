@@ -1,5 +1,5 @@
 [package]
-name = "data-table"
+name = "you_my_sql"
 version = "0.1.0"
 edition = "2024"
 description = "You are my SQL"
@@ -18,3 +18,4 @@ you_my_sql_config = { path = "./you_my_sql_config" }
 floem = "0.2.0"
 chrono = "0.4"
 serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }

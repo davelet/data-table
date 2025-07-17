@@ -1,9 +1,12 @@
 use floem::{
     event::EventListener,
+    peniko::Color,
     prelude::*,
     window::{Fullscreen, WindowConfig},
 };
-use std::sync::Arc;
+
+use crate::action::get_app_config;
+use you_my_sql_config::AppConfig;
 
 mod action;
 
@@ -16,10 +19,7 @@ fn main() {
 
     app.window(
         move |_window_id| {
-            // Create the view
-            let view = hundred_table_view();
-
-            // Add a global event listener for window close events
+            let view = saved_connections_view();
             view.on_event(EventListener::WindowClosed, move |_| {
                 // On macOS, we need to explicitly exit
                 #[cfg(target_os = "macos")]
@@ -35,56 +35,62 @@ fn main() {
     .run();
 }
 
-fn hundred_table_view() -> impl IntoView {
-    // Create the style closure once and wrap it in an Arc
-    let cell_style = Arc::new(cell_style());
+fn saved_connections_view() -> impl View {
+    let config: RwSignal<Option<AppConfig>> = create_rw_signal(None);
 
-    v_stack((
-        label(|| "万数表 (1-10,000)").style(|s| {
-            s.font_size(20.0)
-                .margin_bottom(10.0)
-                .color(floem::peniko::Color::rgb8(50, 50, 50))
-        }),
-        // Add a scrollable container
-        scroll(
-            v_stack_from_iter((0..100).map(|row| {
-                let cell_style = Arc::clone(&cell_style);
-                h_stack_from_iter((0..100).map(move |col| {
-                    let num = row * 100 + col + 1;
-                    let cell_style = Arc::clone(&cell_style);
-                    label(move || num.to_string()).style(move |s| cell_style(s))
-                }))
-            }))
-            .style(|s| s.gap(1.0)),
-        )
-        .style(|s| s.size_full()),
-    ))
-    .style(|s| {
-        s.size_full()
-            .justify_center()
-            .items_center()
-            .padding(20.0)
+    // Load the config when the view is created
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async move {
+            if let Ok(cfg) = get_app_config().await.into_result() {
+                config.set(Some(cfg));
+            }
+        });
+    });
+
+    let view = container((move || {
+        let content = if let Some(cfg) = config.get() {
+            if !cfg.saved_connections.is_empty() {
+                scroll(
+                    dyn_stack(
+                        move || cfg.saved_connections.clone(),
+                        move |conn| conn.name.clone(),
+                        move |conn| {
+                            v_stack((
+                                label(move || format!("🔗 {}", conn.name))
+                                    .style(|s| s.font_size(16.0)),
+                                label(move || {
+                                    format!("  {}@{}:{}", conn.username, conn.host, conn.port)
+                                }),
+                            ))
+                            .style(|s| {
+                                s.padding(15.0)
+                                    .border(1.0)
+                                    .border_color(Color::rgb8(220, 220, 220))
+                                    .border_radius(8.0)
+                                    .margin_bottom(10.0)
+                                    .width_full()
+                            })
+                        },
+                    )
+                    .style(|s| s.width_full().padding(20.0)),
+                )
+                .style(|s| s.width_full().height_full())
+            } else {
+                scroll(label(|| "No saved connections found").style(|s| s.padding(20.0)))
+                    .style(|s| s.width_full().height_full())
+            }
+        } else {
+            scroll(label(|| "Loading connections...").style(|s| s.padding(20.0)))
+                .style(|s| s.width_full().height_full())
+        };
+
+        content
+    })());
+
+    view.style(|s| {
+        s.width_full()
+            .height_full()
             .background(floem::peniko::Color::rgb8(250, 250, 250))
     })
-}
-
-fn cell_style() -> impl Fn(floem::style::Style) -> floem::style::Style + 'static {
-    |s| {
-        s.padding(2.0) // Reduced padding
-            .border(0.3) // Thinner border
-            .border_color(floem::peniko::Color::rgb8(200, 200, 200))
-            .border_radius(1.0) // Smaller radius
-            .items_center()
-            .justify_center()
-            .width(30.0) // Smaller width
-            .height(25.0) // Smaller height
-            .background(floem::peniko::Color::rgb8(245, 245, 245))
-            .font_size(10.0) // Smaller font
-            .color(floem::peniko::Color::rgb8(60, 60, 60))
-            .hover(|s| {
-                s.background(floem::peniko::Color::rgb8(220, 240, 255))
-                    .border_color(floem::peniko::Color::rgb8(100, 150, 200))
-                    .z_index(1) // Ensure hovered cell is above others
-            })
-    }
 }
